@@ -1,0 +1,47 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: fraud_engine
+      POSTGRES_USER: fraud_app
+      POSTGRES_PASSWORD: change-this-password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fraud_app -d fraud_engine"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    environment:
+      ENV: production
+      DATABASE_URL: postgresql+psycopg://fraud_app:change-this-password@db:5432/fraud_engine
+      API_KEY: replace-with-a-long-random-api-key
+      CORS_ORIGINS: http://localhost:8080
+      AWS_REGION: us-east-1
+      SES_SENDER_EMAIL: fraud-alerts@your-verified-domain.example
+      SES_ALERT_RECIPIENT: security-team@your-domain.example
+      SNS_TOPIC_ARN: arn:aws:sns:us-east-1:000000000000:fraud-alerts
+      FORCE_MOCK_NOTIFICATIONS: "false"
+      REQUIRE_LIVE_NOTIFICATIONS: "true"
+      AWS_ACCESS_KEY_ID: ""
+      AWS_SECRET_ACCESS_KEY: ""
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build: ./frontend
+    args:
+      VITE_API_KEY: replace-with-a-long-random-api-key
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
+
+volumes:
+  postgres_data:
